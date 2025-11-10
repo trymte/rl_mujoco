@@ -1,0 +1,44 @@
+[project]
+name = "rl-sandbox"
+version = "0.1.0"
+description = "RL sandbox for playing around with mujoco, RL, hyperparameter optimization and VLAs++"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "mujoco>=3.3.7",
+    "gymnasium>=0.29.0",
+    "gymnasium[mujoco]>=0.29.0",
+    "stable-baselines3>=2.2.0",
+    "wandb>=0.16.0",
+    "tensorboard>=2.15.0",
+    "numpy>=1.24.0",
+    "torch>=2.0.0",
+    "tqdm>=4.67.1",
+    "rich>=14.2.0",
+    "imageio>=2.31.0",
+    "imageio-ffmpeg>=0.4.9",
+    "rl-zoo3>=2.7.0",
+    "optuna>=3.0.0",
+    "weave>=0.52.16",
+    "minari>=0.5.3",
+    "ipykernel>=7.1.0",
+    "transformers>=4.57.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["rl"]
+
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+run_training = "rl.ppo.run_training:main"
+run_optuna = "rl.run_optuna:main"
