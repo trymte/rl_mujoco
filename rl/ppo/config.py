@@ -10,11 +10,9 @@ import torch as th
 class TrainingConfig:
     """A hardcoded configuration for PPO RL training."""
 
-    # Environment settings
     env_name: str = "Humanoid-v5"
     max_episode_steps: int = 1000
 
-    # PPO training settings
     total_timesteps: int = 5_000_000
     learning_rate: float = 3e-5
     learning_rate_schedule: str = "constant"  # rl_zoo3 uses constant for Humanoid
@@ -23,14 +21,14 @@ class TrainingConfig:
     n_epochs: int = 5
     gamma: float = 0.95
     gae_lambda: float = 0.9
-    clip_range: float = 0.3
-    clip_range_schedule: str = "constant"  # rl_zoo3 uses constant for Humanoid
+    clip_range: float = 0.2
+    clip_range_schedule: str = "constant"
     ent_coef: float = 0.002
     vf_coef: float = 0.45
     max_grad_norm: float = 2.0
     normalize_advantage: bool = True  # Normalize advantages for stability
 
-    # Network architecture
+    # Network architectures
     policy_kwargs: dict = field(
         default_factory=lambda: {
             "net_arch": [dict(pi=[256, 256], vf=[256, 256])],
@@ -51,5 +49,4 @@ class TrainingConfig:
 
     seed: int = 42
 
-    # Checkpoint path for resuming training
     checkpoint_path: Optional[str] = None

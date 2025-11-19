@@ -1,8 +1,9 @@
 from typing import Any
 
-import optuna
 import torch as th
 from stable_baselines3.common.utils import LinearSchedule
+
+import optuna
 
 
 def convert_onpolicy_params(sampled_params: dict[str, Any]) -> dict[str, Any]:
@@ -22,11 +23,13 @@ def convert_onpolicy_params(sampled_params: dict[str, Any]) -> dict[str, Any]:
             del hyperparams[f"{name}_pow"]
 
     net_arch = {
-        "tiny": dict(pi=[64], vf=[64]),
-        "small": dict(pi=[64, 64], vf=[64, 64]),
-        "medium": dict(pi=[256, 256], vf=[256, 256]),
-        "big": dict(pi=[400, 300], vf=[400, 300]),
-        "large": dict(pi=[256, 256, 256], vf=[256, 256, 256]),
+        "small": [128, 128],
+        "medium": [256, 256],
+        "big": [400, 300],
+        "large": [512, 512],
+        "verylarge": [256, 256, 128],
+        "verybig": [512, 256, 256],
+        "huge": [512, 512, 256],
     }[net_arch]
 
     activation_fn_name = sampled_params["activation_fn"]
@@ -44,8 +47,8 @@ def convert_onpolicy_params(sampled_params: dict[str, Any]) -> dict[str, Any]:
         if hyperparams["learning_rate_schedule"] == "linear":
             learning_rate = LinearSchedule(
                 start=hyperparams["learning_rate"],
-                end=hyperparams["learning_rate"] * 0.25,
-                end_fraction=0.9,
+                end=hyperparams["learning_rate"] * 0.05,
+                end_fraction=1.0,
             )
         else:
             learning_rate = hyperparams["learning_rate"]
@@ -58,8 +61,8 @@ def convert_onpolicy_params(sampled_params: dict[str, Any]) -> dict[str, Any]:
         if hyperparams["clip_range_schedule"] == "linear":
             clip_range = LinearSchedule(
                 start=hyperparams["clip_range"],
-                end=hyperparams["clip_range"] * 0.25,
-                end_fraction=0.9,
+                end=hyperparams["clip_range"] * 0.1,
+                end_fraction=1.0,
             )
         else:
             clip_range = hyperparams["clip_range"]
@@ -94,8 +97,10 @@ def convert_offpolicy_params(sampled_params: dict[str, Any]) -> dict[str, Any]:
         "small": [64, 64],
         "medium": [256, 256],
         "big": [400, 300],
-        "large": [256, 256, 256],
-        "verybig": [512, 512, 512],
+        "large": [512, 512],
+        "verylarge": [256, 256, 128],
+        "verybig": [512, 512, 256],
+        "huge": [512, 512, 512],
     }[net_arch]
 
     if "train_freq" in sampled_params:
@@ -128,8 +133,8 @@ def convert_offpolicy_params(sampled_params: dict[str, Any]) -> dict[str, Any]:
         if hyperparams["learning_rate_schedule"] == "linear":
             learning_rate = LinearSchedule(
                 start=hyperparams["learning_rate"],
-                end=hyperparams["learning_rate"] * 0.25,
-                end_fraction=0.9,
+                end=hyperparams["learning_rate"] * 0.1,
+                end_fraction=1.0,
             )
         else:
             learning_rate = hyperparams["learning_rate"]
@@ -150,19 +155,15 @@ def convert_offpolicy_params(sampled_params: dict[str, Any]) -> dict[str, Any]:
 def sample_ppo_hyperparameters(trial: optuna.Trial) -> dict[str, Any]:
     """Sample core PPO hyperparameters from an Optuna trial."""
     learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
-    learning_rate_schedule = trial.suggest_categorical(
-        "learning_rate_schedule", ["constant", "linear"]
-    )
-    activation_fn = trial.suggest_categorical(
-        "activation_fn", ["tanh", "relu", "elu", "leaky_relu"]
-    )
+    learning_rate_schedule = "linear"
+    activation_fn = "relu"
     net_arch = trial.suggest_categorical(
-        "net_arch", ["small", "medium", "big", "large"]
+        "net_arch", ["big", "large", "verylarge", "verybig", "huge"]
     )
 
-    n_steps = trial.suggest_categorical("n_steps", [128, 256, 512, 1024])
-    batch_size = trial.suggest_categorical("batch_size", [32, 64, 128, 256])
-    n_epochs = trial.suggest_categorical("n_epochs", [3, 5, 10, 15])
+    n_steps = trial.suggest_categorical("n_steps", [512, 1024, 2048])
+    batch_size = trial.suggest_categorical("batch_size", [64, 128, 256, 512])
+    n_epochs = trial.suggest_categorical("n_epochs", [10, 15])
 
     if batch_size > n_steps:
         batch_size = n_steps
@@ -173,15 +174,17 @@ def sample_ppo_hyperparameters(trial: optuna.Trial) -> dict[str, Any]:
         "one_minus_gae_lambda", 0.001, 0.2, log=True
     )
 
-    clip_range = trial.suggest_categorical("clip_range", [0.1, 0.2, 0.3, 0.4])
+    clip_range = trial.suggest_categorical("clip_range", [0.05, 0.1, 0.2, 0.3])
     clip_range_schedule = trial.suggest_categorical(
         "clip_range_schedule", ["constant", "linear"]
     )
 
-    ent_coef = trial.suggest_categorical("ent_coef", [0.0, 0.0001, 0.001, 0.002, 0.01])
-    vf_coef = trial.suggest_categorical("vf_coef", [0.1, 0.25, 0.5, 0.75, 1.0])
+    ent_coef = trial.suggest_categorical(
+        "ent_coef", [0.0001, 0.005, 0.001, 0.002, 0.01]
+    )
+    vf_coef = trial.suggest_categorical("vf_coef", [0.1, 0.2, 0.4, 0.5, 0.6, 0.75])
 
-    max_grad_norm = trial.suggest_categorical("max_grad_norm", [0.5, 1.0, 2.0])
+    max_grad_norm = trial.suggest_categorical("max_grad_norm", [1.0, 1.5, 2.0])
 
     params = {
         "learning_rate": learning_rate,
@@ -198,6 +201,7 @@ def sample_ppo_hyperparameters(trial: optuna.Trial) -> dict[str, Any]:
         "max_grad_norm": max_grad_norm,
         "activation_fn": activation_fn,
         "net_arch": net_arch,
+        "use_sde": True,
     }
     return convert_onpolicy_params(params)
 

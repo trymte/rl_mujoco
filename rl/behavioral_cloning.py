@@ -47,9 +47,9 @@ for i in tqdm(range(total_episodes)):
             break
 
 dataset = env.create_dataset(
-    dataset_id="humanoid/expert-v0",
+    dataset_id="humanoid/expert-v1",
+    description="Expert policy for Humanoid-v4",
     algorithm_name="SAC",
-    code_permalink="https://minari.farama.org/tutorials/behavioral_cloning",
     author="Trym",
     author_email="tengesdal1994@gmail.com",
 )
@@ -65,12 +65,14 @@ class PolicyNetwork(nn.Module):
         super().__init__()
         self.fc1 = nn.Linear(input_dim, 256)
         self.fc2 = nn.Linear(256, 256)
-        self.fc3 = nn.Linear(128, output_dim)
+        self.fc3 = nn.Linear(256, 128)
+        self.fc4 = nn.Linear(128, output_dim)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
-        x = torch.tanh(self.fc3(x))  # Tanh to bound actions to [-1, 1]
+        x = torch.relu(self.fc3(x))
+        x = torch.tanh(self.fc4(x))  # Tanh to bound actions to [-1, 1]
         return x
 
 
@@ -107,7 +109,7 @@ def collate_fn(batch):
 # To begin, let's initialize the DataLoader, neural network, optimizer, and loss.
 
 
-minari_dataset = minari.load_dataset("humanoid/expert-v0")
+minari_dataset = minari.load_dataset("humanoid/expert-v1")
 dataloader = DataLoader(
     minari_dataset, batch_size=64, shuffle=True, collate_fn=collate_fn
 )
@@ -135,10 +137,12 @@ for epoch in range(num_epochs):
     num_batches = 0
     for batch in dataloader:
         # Flatten batch dimensions for continuous actions
-        observations = batch["observations"][:, :-1].reshape(
-            -1, observation_space.shape[0]
+        observations = (
+            batch["observations"][:, :-1]
+            .reshape(-1, observation_space.shape[0])
+            .float()
         )
-        actions = batch["actions"].reshape(-1, action_space.shape[0])
+        actions = batch["actions"].reshape(-1, action_space.shape[0]).float()
 
         # Remove padding (where all values are 0)
         mask = observations.abs().sum(dim=1) > 0
